@@ -9,7 +9,7 @@ export class EmailService {
 
   constructor(private configService: ConfigService) {}
 
-  async sent(emailInformation: SendEmailDTO): Promise<void> {
+  async send(emailInformation: SendEmailDTO): Promise<void> {
     try {
       const email = this.configService.get<string>('EMAIL');
       const password = this.configService.get<string>('PASSWORD_EMAIL');

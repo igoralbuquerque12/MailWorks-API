@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EmailModule } from './email/email.module';
+import { TwoFactorModule } from './two-factor/two-factor.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { EmailModule } from './email/email.module';
       envFilePath: '.env',
     }),
     EmailModule,
+    TwoFactorModule,
   ],
   controllers: [AppController],
   providers: [AppService],

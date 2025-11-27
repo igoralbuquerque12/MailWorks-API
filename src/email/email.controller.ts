@@ -11,7 +11,7 @@ export class EmailController {
   @Post()
   @HttpCode(200)
   sendEmail(@Body() emailInformation: SendEmailDTO): string {
-    this.emailService.sent(emailInformation).catch((error) => {
+    this.emailService.send(emailInformation).catch((error) => {
       this.logger.error('Error with e-mail service: ', error);
     });
     return 'Your email has been sent!';
