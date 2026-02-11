@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      EMAIL: ${EMAIL}
+      PASSWORD_EMAIL: ${PASSWORD_EMAIL}
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+  redis:
+    image: redis:alpine
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
