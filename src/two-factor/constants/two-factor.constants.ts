@@ -1,0 +1,2 @@
+export const TWO_FACTOR_CODE_TTL_SECONDS = 300;
+export const TWO_FACTOR_CODE_LENGTH = 6;
