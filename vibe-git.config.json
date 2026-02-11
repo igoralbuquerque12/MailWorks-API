@@ -1,0 +1,29 @@
+{
+  "aiProvider": "gemini",
+  "PRs": {
+    "createPRs": true,
+    "useModel": true,
+    "model": "# Description\nWrite a detailed description...\n\n# Justification\nExplain the reason...",
+    "idioma": "pt-BR"
+  },
+  "commits": {
+    "useConventionalCommits": true,
+    "conventionalCommitTypes": [
+      "feat",
+      "fix",
+      "docs",
+      "style",
+      "refactor",
+      "perf",
+      "test",
+      "chore"
+    ],
+    "idioma": "en"
+  },
+  "llm-gemini-model": {
+    "modelName": "gemini-2.5-flash"
+  },
+  "llm-openai-model": {
+    "modelName": "gpt-4o"
+  }
+}
