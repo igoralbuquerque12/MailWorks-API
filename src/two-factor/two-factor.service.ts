@@ -1,7 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { CacheService } from 'src/cache/cache.service';
 import { EmailService } from 'src/email/email.service';
 import { VerifyTwoFactorDTO, SendTwoFactorDTO } from './dto';
+import { CodeGeneratorHelper } from 'src/two-factor/helpers/code-generator.helper';
+import {
+  TWO_FACTOR_CODE_LENGTH,
+  TWO_FACTOR_CODE_TTL_SECONDS,
+} from 'src/two-factor/constants/two-factor.constants';
 
 @Injectable()
 export class TwoFactorService {
@@ -10,36 +19,50 @@ export class TwoFactorService {
   constructor(
     private readonly cacheService: CacheService,
     private readonly emailService: EmailService,
+    private readonly codeGeneratorHelper: CodeGeneratorHelper,
   ) {}
 
-  async send(twoFactorData: SendTwoFactorDTO): Promise<void> {
+  async send(twoFactorData: SendTwoFactorDTO): Promise<{ message: string }> {
+    const { email } = twoFactorData;
+    const code = this.codeGeneratorHelper.generateNumericCode(
+      TWO_FACTOR_CODE_LENGTH,
+    );
+    const cacheKey = `authentication:${email}`;
+
     try {
-      const { email } = twoFactorData;
-
-      const code = '123456';
-      const cacheKey = 'autentication:' + email;
-
-      await this.cacheService.set(cacheKey, code, 1800);
+      await this.cacheService.set(cacheKey, code, TWO_FACTOR_CODE_TTL_SECONDS);
 
       await this.emailService.send({
         to: email,
         subject: 'Seu código de verificação',
         content: `Seu código é: ${code}`,
       });
+
+      return { message: 'Your two factor authentication has been sent!' };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
-      this.logger.error(`Erro: ${errorMessage}`);
-      throw error;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error sending 2FA to ${email}`, message);
+
+      throw new InternalServerErrorException(
+        'Failed to send two-factor authentication code. Please try again later.',
+      );
     }
+  }
+
+  private async _getEmailCode(email: string): Promise<string | null> {
+    const cacheKey = `authentication:${email}`;
+    return this.cacheService.get(cacheKey);
   }
 
   async verify(twoFactorData: VerifyTwoFactorDTO): Promise<boolean> {
     const { email, code } = twoFactorData;
+    const savedCode = await this._getEmailCode(email);
 
-    const cacheKey = 'autentication:' + email;
-    const savedCode = await this.cacheService.get(cacheKey);
+    if (savedCode === code) {
+      await this.cacheService.delete(`authentication:${email}`);
+      return true;
+    }
 
-    return savedCode === code;
+    return false;
   }
 }
