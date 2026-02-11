@@ -43,8 +43,7 @@ export class EmailService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Erro desconhecido';
-      this.logger.error('Erro ao enviar email:', errorMessage);
-      throw error;
+      throw new Error(`E-mail not sent: ${errorMessage}`);
     }
   }
 }
