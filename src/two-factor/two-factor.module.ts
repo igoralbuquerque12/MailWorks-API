@@ -8,6 +8,5 @@ import { EmailModule } from 'src/email/email.module';
   imports: [CacheModule, EmailModule],
   controllers: [TwoFactorController],
   providers: [TwoFactorService],
-  exports: [],
 })
 export class TwoFactorModule {}
