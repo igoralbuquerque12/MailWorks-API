@@ -6,7 +6,8 @@ export class CacheService {
   private redis: Redis;
 
   constructor() {
-    this.redis = new Redis({ host: 'localhost', port: 6379 });
+    const redisPort = process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379;
+    this.redis = new Redis({ host: process.env.REDIS_HOST, port: redisPort });
   }
 
   set(key: string, value: string, ttlSeconds = 1800): Promise<'OK'> {
