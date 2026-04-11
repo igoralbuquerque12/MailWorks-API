@@ -1,19 +1,27 @@
-import { Controller, Body, Post, HttpCode, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Body,
+  Post,
+  HttpCode,
+  Headers,
+  BadRequestException,
+} from '@nestjs/common';
 import { EmailService } from './email.service';
 import { SendEmailDTO } from './dto/send-email-dto';
 
 @Controller('email')
 export class EmailController {
-  constructor(private emailService: EmailService) {}
-
-  private readonly logger = new Logger(EmailController.name);
+  constructor(private readonly emailService: EmailService) {}
 
   @Post()
-  @HttpCode(200)
-  sendEmail(@Body() emailInformation: SendEmailDTO): string {
-    this.emailService.send(emailInformation).catch((error) => {
-      this.logger.error('Error with e-mail service: ', error);
-    });
-    return 'Your email has been sent!';
+  @HttpCode(202)
+  sendEmail(
+    @Headers('x-api-key') apiKey: string,
+    @Body() dto: SendEmailDTO,
+  ) {
+    if (!apiKey) {
+      throw new BadRequestException('X-API-Key header is required');
+    }
+    return this.emailService.send(apiKey, dto);
   }
 }

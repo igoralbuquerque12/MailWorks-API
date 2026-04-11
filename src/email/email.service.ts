@@ -1,50 +1,58 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { createTransport, Transporter } from 'nodemailer';
+import {
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { EmailJobService } from 'src/email-job/email-job.service';
 import { SendEmailDTO } from './dto/send-email-dto';
+import { EMAIL_QUEUE } from 'src/queue/queue.constants';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private readonly prisma:        PrismaService,
+    private readonly emailJobService: EmailJobService,
+    @InjectQueue(EMAIL_QUEUE) private readonly emailQueue: Queue,
+  ) {}
 
-  async send(emailInformation: SendEmailDTO): Promise<void> {
-    try {
-      const email = this.configService.get<string>('EMAIL');
-      const password = this.configService.get<string>('PASSWORD_EMAIL');
+  async send(
+    apiKey: string,
+    dto: SendEmailDTO,
+  ): Promise<{ jobId: string; status: string }> {
+    const tenantApiKey = await this.prisma.tenantApiKey.findUnique({
+      where: { apiKey, isActive: true },
+    });
 
-      if (!email || !password)
-        throw new Error('Credenciais de email não configuradas');
-
-      const transport: Transporter = createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: email,
-          pass: password,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-      });
-
-      await transport.verify();
-
-      const { to, subject, content } = emailInformation;
-
-      await transport.sendMail({
-        from: `Services Igor A. <${email}>`,
-        to: to,
-        subject: subject,
-        html: `<p>${content}</p>`,
-      });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido';
-      this.logger.error('Erro ao enviar email:', errorMessage);
-      throw error;
+    if (!tenantApiKey) {
+      throw new UnauthorizedException('Invalid or inactive API key');
     }
+
+    const { tenantId, providerId } = tenantApiKey;
+
+    // Persiste o job com provider já vinculado
+    const emailJob = await this.emailJobService.create({
+      tenantId,
+      providerId,
+      to:      dto.to,
+      subject: dto.subject,
+      content: dto.content,
+    });
+
+    // Enfileira para processamento assíncrono
+    await this.emailQueue.add(
+      { jobId: emailJob.id },
+      { attempts: 3, backoff: { type: 'exponential', delay: 2000 } },
+    );
+
+    this.logger.log(
+      `EmailJob ${emailJob.id} enfileirado (tenant=${tenantId}, provider=${providerId})`,
+    );
+
+    return { jobId: emailJob.id, status: 'PENDING' };
   }
 }
