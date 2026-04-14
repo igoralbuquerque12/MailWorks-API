@@ -1,20 +1,13 @@
 import { createTransport } from 'nodemailer';
+
 import {
   IEmailProvider,
   EmailPayload,
 } from 'src/common/interfaces/email-provider.interface';
-
-export interface SmtpConfig {
-  host: string;
-  port: number;
-  secure: boolean;
-  user: string;
-  pass: string;
-  fromName?: string;
-}
+import { SmtpConfig } from './entities/smtp-config.entity';
 
 export class SmtpProvider implements IEmailProvider {
-  constructor(private readonly config: SmtpConfig) {}
+  constructor(private readonly config: SmtpConfig) { }
 
   async send(payload: EmailPayload): Promise<void> {
     const transport = createTransport({

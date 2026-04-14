@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { TenantEmailProvider } from '@prisma/client';
 import { IEmailProvider } from 'src/common/interfaces/email-provider.interface';
 import { ProviderType } from 'src/common/enums/provider-type.enum';
-import { SmtpProvider, SmtpConfig } from './smtp/smtp.provider';
+import { SmtpProvider } from './smtp/smtp.provider';
+import { SmtpConfig } from './smtp/entities/smtp-config.entity';
 
 @Injectable()
 export class EmailProviderFactory {
