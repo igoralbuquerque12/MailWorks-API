@@ -15,7 +15,7 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
   constructor(
-    private readonly prisma:        PrismaService,
+    private readonly prisma: PrismaService,
     private readonly emailJobService: EmailJobService,
     @InjectQueue(EMAIL_QUEUE) private readonly emailQueue: Queue,
   ) {}

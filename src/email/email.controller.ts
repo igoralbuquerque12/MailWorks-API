@@ -4,24 +4,24 @@ import {
   Post,
   HttpCode,
   Headers,
-  BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
-import { EmailService } from './email.service';
-import { SendEmailDTO } from './dto/send-email-dto';
 
+import { EmailService } from 'src/email/email.service';
+import { SendEmailDTO } from 'src/email/dto/send-email-dto';
+import { ApiKeyGuard } from 'src/guards/api-key.guard';
+
+@UseGuards(ApiKeyGuard)
 @Controller('email')
 export class EmailController {
-  constructor(private readonly emailService: EmailService) {}
+  constructor(private readonly emailService: EmailService) { }
 
   @Post()
   @HttpCode(202)
-  sendEmail(
+  send(
     @Headers('x-api-key') apiKey: string,
     @Body() dto: SendEmailDTO,
   ) {
-    if (!apiKey) {
-      throw new BadRequestException('X-API-Key header is required');
-    }
     return this.emailService.send(apiKey, dto);
   }
 }
