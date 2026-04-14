@@ -2,11 +2,11 @@ import { IsEmail, IsString } from 'class-validator';
 
 export class SendEmailDTO {
   @IsEmail()
-  to: string;
+  to!: string;
 
   @IsString()
-  subject: string;
+  subject!: string;
 
   @IsString()
-  content: string;
+  content!: string;
 }
