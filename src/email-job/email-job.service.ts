@@ -1,20 +1,14 @@
 import { Injectable } from '@nestjs/common';
+
 import { EmailJob } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-
-export interface CreateEmailJobData {
-  tenantId:   string;
-  providerId: string;
-  to:         string;
-  subject:    string;
-  content:    string;
-}
+import { CreateEmailJobDto } from 'src/email-job/dto/create-email-job.dto';
 
 @Injectable()
 export class EmailJobService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(data: CreateEmailJobData): Promise<EmailJob> {
+  create(data: CreateEmailJobDto): Promise<EmailJob> {
     return this.prisma.emailJob.create({ data });
   }
 
