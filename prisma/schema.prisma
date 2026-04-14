@@ -7,6 +7,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ProviderType {
+  SMTP
+  MAILGUN
+  RESEND
+  SES
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
 model Tenant {
   id             String                @id @default(uuid())
   name           String
@@ -34,17 +48,15 @@ model TenantEmailProvider {
   @@map("tenant_email_providers")
 }
 
-// Chave de API vinculada a um tenant + provider específico.
-// Ao autenticar com apiKey, já sabemos qual provider usar.
 model TenantApiKey {
   id         String              @id @default(uuid())
-  apiKey     String              @unique @map("api_key")
-  tenantId   String              @map("tenant_id")
+  name       String
+  key        String              @unique @map("key")
   providerId String              @map("provider_id")
   isActive   Boolean             @default(true) @map("is_active")
   createdAt  DateTime            @default(now()) @map("created_at")
-  tenant     Tenant              @relation(fields: [tenantId], references: [id])
-  provider   TenantEmailProvider @relation(fields: [providerId], references: [id])
+
+  provider   TenantEmailProvider @relation(fields: [providerId, tenantId], references: [id, tenantId])
 
   @@map("tenant_api_keys")
 }
@@ -61,22 +73,10 @@ model EmailJob {
   errorMessage String?             @map("error_message")
   createdAt    DateTime            @default(now()) @map("created_at")
   processedAt  DateTime?           @map("processed_at")
+
   tenant       Tenant              @relation(fields: [tenantId], references: [id])
   provider     TenantEmailProvider @relation(fields: [providerId], references: [id])
 
   @@map("email_jobs")
 }
 
-enum ProviderType {
-  SMTP
-  MAILGUN
-  RESEND
-  SES
-}
-
-enum JobStatus {
-  PENDING
-  PROCESSING
-  SENT
-  FAILED
-}
