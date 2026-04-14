@@ -11,10 +11,10 @@ export class EmailProcessor {
   private readonly logger = new Logger(EmailProcessor.name);
 
   constructor(
-    private readonly prisma:          PrismaService,
+    private readonly prisma: PrismaService,
     private readonly emailJobService: EmailJobService,
-    private readonly factory:         EmailProviderFactory,
-  ) {}
+    private readonly factory: EmailProviderFactory,
+  ) { }
 
   @Process()
   async handle(job: Job<{ jobId: string }>): Promise<void> {
@@ -30,7 +30,6 @@ export class EmailProcessor {
     await this.emailJobService.markAsProcessing(jobId);
 
     try {
-      // providerId já está no job — não precisa buscar por isActive
       const providerConfig = await this.prisma.tenantEmailProvider.findUnique({
         where: { id: emailJob.providerId },
       });
@@ -42,7 +41,7 @@ export class EmailProcessor {
       const provider = this.factory.create(providerConfig);
 
       await provider.send({
-        to:      emailJob.to,
+        to: emailJob.to,
         subject: emailJob.subject,
         content: emailJob.content,
       });
