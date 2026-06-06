@@ -1,13 +1,15 @@
 import { Module } from '@nestjs/common';
+import { AwsModule } from 'src/aws/aws.module';
+import { CampaignsModule } from 'src/campaigns/campaigns.module';
+import { EmailJobsModule } from 'src/email-jobs/email-jobs.module';
+import { TemplatesModule } from 'src/templates/templates.module';
 import { EmailController } from './email.controller';
 import { EmailService } from './email.service';
-import { QueueModule } from 'src/queue/queue.module';
-import { EmailJobModule } from 'src/email-job/email-job.module';
 
 @Module({
-  imports:     [QueueModule, EmailJobModule],
+  imports: [AwsModule, EmailJobsModule, TemplatesModule, CampaignsModule],
   controllers: [EmailController],
-  providers:   [EmailService],
-  exports:     [EmailService],
+  providers: [EmailService],
+  exports: [EmailService],
 })
 export class EmailModule {}

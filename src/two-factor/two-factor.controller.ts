@@ -1,35 +1,24 @@
-import { Controller, Body, Post, Logger, HttpCode } from '@nestjs/common';
-import { TwoFactorService } from './two-factor.service';
+import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { ApiKeyGuard } from 'src/common/auth/api-key.guard';
+import { Auth } from 'src/common/auth/auth-context.decorator';
+import { AuthContext } from 'src/common/auth/auth-context.interface';
 import { SendTwoFactorDTO, VerifyTwoFactorDTO } from './dto';
+import { TwoFactorService } from './two-factor.service';
 
+@UseGuards(ApiKeyGuard)
 @Controller('two-factor')
 export class TwoFactorController {
-  private readonly logger = new Logger(TwoFactorController.name);
-
-  constructor(private twoFactorService: TwoFactorService) {}
+  constructor(private readonly twoFactorService: TwoFactorService) {}
 
   @Post('send')
-  @HttpCode(200)
-  send(@Body() body: SendTwoFactorDTO): string {
-    this.twoFactorService.send(body).catch((error) => {
-      this.logger.error('Error with send two factor validation: ', error);
-    });
-    return 'Your two factor autentitcation has been sent!';
+  @HttpCode(202)
+  send(@Auth() auth: AuthContext, @Body() dto: SendTwoFactorDTO) {
+    return this.twoFactorService.send(auth, dto);
   }
 
   @Post('verify')
   @HttpCode(200)
-  async verify(@Body() body: VerifyTwoFactorDTO): Promise<boolean> {
-    const verificationCode = await this.twoFactorService
-      .verify(body)
-      .catch((error) => {
-        this.logger.error(
-          'Error with verification two factor service: ',
-          error,
-        );
-        return false;
-      });
-
-    return verificationCode;
+  verify(@Auth() auth: AuthContext, @Body() dto: VerifyTwoFactorDTO) {
+    return this.twoFactorService.verify(auth, dto);
   }
 }

@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -9,15 +10,24 @@ datasource db {
 
 enum ProviderType {
   SMTP
+  SES
   MAILGUN
   RESEND
-  SES
 }
 
 enum JobStatus {
   PENDING
   PROCESSING
   SENT
+  FAILED
+  FAILED_FINAL
+}
+
+enum CampaignStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  COMPLETED_WITH_FAILURES
   FAILED
 }
 
@@ -29,7 +39,10 @@ model Tenant {
   updatedAt      DateTime              @updatedAt @map("updated_at")
   emailProviders TenantEmailProvider[]
   apiKeys        TenantApiKey[]
+  templates      EmailTemplate[]
   emailJobs      EmailJob[]
+  campaigns      EmailCampaign[]
+  twoFactorCodes TwoFactorChallenge[]
 
   @@map("tenants")
 }
@@ -41,42 +54,102 @@ model TenantEmailProvider {
   config       Json
   isActive     Boolean        @default(true) @map("is_active")
   createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
   tenant       Tenant         @relation(fields: [tenantId], references: [id])
   apiKeys      TenantApiKey[]
   emailJobs    EmailJob[]
 
+  @@index([tenantId])
   @@map("tenant_email_providers")
 }
 
 model TenantApiKey {
   id         String              @id @default(uuid())
-  name       String
-  key        String              @unique @map("key")
+  tenantId   String              @map("tenant_id")
   providerId String              @map("provider_id")
+  name       String
+  keyPrefix  String              @map("key_prefix")
+  keyHash    String              @unique @map("key_hash")
   isActive   Boolean             @default(true) @map("is_active")
   createdAt  DateTime            @default(now()) @map("created_at")
+  revokedAt  DateTime?           @map("revoked_at")
+  tenant     Tenant              @relation(fields: [tenantId], references: [id])
+  provider   TenantEmailProvider @relation(fields: [providerId], references: [id])
 
-  provider   TenantEmailProvider @relation(fields: [providerId, tenantId], references: [id, tenantId])
-
+  @@index([tenantId])
+  @@index([providerId])
   @@map("tenant_api_keys")
+}
+
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  name      String
+  subject   String
+  html      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("email_templates")
+}
+
+model EmailCampaign {
+  id              String         @id @default(uuid())
+  tenantId        String         @map("tenant_id")
+  name            String?
+  subject         String
+  totalRecipients Int            @map("total_recipients")
+  status          CampaignStatus @default(PENDING)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  completedAt     DateTime?      @map("completed_at")
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  jobs            EmailJob[]
+
+  @@index([tenantId])
+  @@map("email_campaigns")
 }
 
 model EmailJob {
   id           String              @id @default(uuid())
   tenantId     String              @map("tenant_id")
   providerId   String              @map("provider_id")
+  campaignId   String?             @map("campaign_id")
   to           String
   subject      String
   content      String
   status       JobStatus           @default(PENDING)
   attempts     Int                 @default(0)
   errorMessage String?             @map("error_message")
+  messageId    String?             @map("message_id")
   createdAt    DateTime            @default(now()) @map("created_at")
   processedAt  DateTime?           @map("processed_at")
-
+  updatedAt    DateTime            @updatedAt @map("updated_at")
   tenant       Tenant              @relation(fields: [tenantId], references: [id])
   provider     TenantEmailProvider @relation(fields: [providerId], references: [id])
+  campaign     EmailCampaign?      @relation(fields: [campaignId], references: [id])
 
+  @@index([tenantId])
+  @@index([providerId])
+  @@index([campaignId])
+  @@index([status])
   @@map("email_jobs")
 }
 
+model TwoFactorChallenge {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  email      String
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, email])
+  @@index([expiresAt])
+  @@map("two_factor_challenges")
+}

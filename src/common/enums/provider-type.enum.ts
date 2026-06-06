@@ -1,6 +1,6 @@
 export enum ProviderType {
   SMTP = 'SMTP',
-  // MAILGUN = 'MAILGUN',
-  // RESEND = 'RESEND',
-  // SES = 'SES',
+  SES = 'SES',
+  MAILGUN = 'MAILGUN',
+  RESEND = 'RESEND',
 }
