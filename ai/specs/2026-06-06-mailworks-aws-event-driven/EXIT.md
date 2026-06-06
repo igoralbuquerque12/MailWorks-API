@@ -125,4 +125,3 @@ Documentação atualizada: sim.
 - Push: concluído para `origin/feat/aws-event-driven-mailworks`
 - Pull Request draft: https://github.com/igoralbuquerque12/MailWorks-API/pull/4
 - Base do PR: `main`
-
