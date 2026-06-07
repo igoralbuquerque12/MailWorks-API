@@ -53,6 +53,7 @@ Nenhuma URL real foi inserida. `DIRECT_URL` permanece fora da allowlist do `serv
 ## Git e Pull Request
 
 - Branch: `feat/aws-event-driven-mailworks`
-- Commit/push: pendente da revisao final.
+- Commit principal: `2b2a977` - `feat(database): configure Neon connections`
+- Push: concluido para `origin/feat/aws-event-driven-mailworks`.
 - Pull Request existente da branch: https://github.com/igoralbuquerque12/MailWorks-API/pull/4
 - Alteracoes preexistentes fora do escopo foram preservadas e nao devem entrar no commit desta tarefa.
