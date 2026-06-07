@@ -9,7 +9,7 @@ Atualize documentacao na mesma tarefa sempre que mudar:
 - endpoint, header, DTO, status HTTP, resposta, autenticacao ou erro;
 - regra de negocio, especialmente multi-tenancy e lifecycle de `EmailJob`;
 - worker, fila, payload, retry/backoff ou transicao de status;
-- integracao PostgreSQL, SQS, Lambda, SES, SMTP/Nodemailer ou novo provider;
+- integracao Neon/PostgreSQL, SQS, Lambda, SES, SMTP/Nodemailer ou novo provider;
 - variavel de ambiente, comando de operacao ou comando de validacao;
 - contrato publico TypeScript ou comportamento relevante para consumidores.
 

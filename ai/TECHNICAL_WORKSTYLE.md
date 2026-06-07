@@ -25,7 +25,7 @@
 
 ## Regras para mudancas sensiveis
 
-- Prisma: alinhe schema, Prisma Client, seed, queries, relacoes e eventual migracao. Nao assuma que o schema atual valida.
+- Prisma/Neon: alinhe schema, Prisma Client, seed, queries, relacoes e eventual migracao. Use `DATABASE_URL` pooled no runtime e `DIRECT_URL` direct no Prisma CLI. Nao assuma que o schema atual valida.
 - Filas: preserve a porta `EmailQueuePublisher`; documente payload SQS, retry/DLQ, idempotencia, transicoes de status e tratamento de falhas.
 - 2FA: persista apenas hash no PostgreSQL e documente TTL, uso unico e comportamento em indisponibilidade.
 - Providers externos: mantenha o factory e o contrato comum; documente configuracao, erros e dados sensiveis.

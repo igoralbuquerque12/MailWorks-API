@@ -3,9 +3,9 @@
 ## Visao geral
 
 ```text
-HTTP -> API Gateway -> Lambda API NestJS -> PostgreSQL -> SQS
-                                                    -> Lambda worker
-                                                    -> SES ou SMTP
+HTTP -> API Gateway -> Lambda API NestJS -> Neon PostgreSQL -> SQS
+                                                         -> Lambda worker
+                                                         -> SES ou SMTP
 Falhas repetidas -> DLQ -> CloudWatch Alarm
 ```
 
@@ -36,6 +36,13 @@ Models Prisma: `Tenant`, `TenantEmailProvider`, `TenantApiKey`, `EmailTemplate`,
 
 API keys e desafios 2FA sao persistidos como SHA-256, nunca como valor raw nos respectivos models. O raw da API key so e mostrado no bootstrap/seed.
 
+O Prisma 6 usa duas URLs para o mesmo branch Neon:
+
+- `DATABASE_URL`: endpoint pooled (`-pooler`) para API e worker Lambda;
+- `DIRECT_URL`: endpoint direct para migrations, introspection e administracao via Prisma CLI.
+
+Somente `DATABASE_URL` faz parte do ambiente das Lambdas.
+
 ## Infraestrutura
 
 `serverless.yml` cria API, worker, SQS, DLQ, redrive policy, alarme CloudWatch, IAM e outputs. A allowlist dotenv e uma restricao de seguranca obrigatoria.
@@ -44,5 +51,4 @@ API keys e desafios 2FA sao persistidos como SHA-256, nunca como valor raw nos r
 
 - SQS entrega pelo menos uma vez; `SENT` e a barreira idempotente atual.
 - Banco e fila nao compartilham transacao; transactional outbox e evolucao planejada.
-- Lambda e Postgres exigem controle de concorrencia e conexoes em producao.
-
+- O pooler Neon suporta o runtime serverless, mas a concorrencia das Lambdas deve respeitar limites e capacidade do banco.

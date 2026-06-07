@@ -19,12 +19,12 @@ Tenant
   -> API Gateway HTTP API
   -> Lambda API NestJS
   -> ApiKeyGuard: key hash + tenant/provider ativos
-  -> PostgreSQL: EmailJob PENDING
+  -> Neon PostgreSQL: EmailJob PENDING
   -> Amazon SQS: mensagem com jobId
   -> Lambda emailWorker
   -> EmailProviderFactory
   -> Amazon SES ou SMTP
-  -> PostgreSQL: SENT, FAILED ou FAILED_FINAL
+  -> Neon PostgreSQL: SENT, FAILED ou FAILED_FINAL
 
 SQS excede maxReceiveCount -> DLQ -> CloudWatch Alarm
 ```
@@ -82,7 +82,7 @@ O `serverless.yml` declara:
 - IAM mínimo para publicar/consumir SQS e enviar por SES;
 - outputs com URLs e ARNs das filas.
 
-O `serverless-dotenv-plugin` usa allowlist. Apenas `DATABASE_URL`, `AWS_SES_FROM_EMAIL` e `AWS_SES_FROM_NAME` podem ser carregadas do `.env`.
+O `serverless-dotenv-plugin` usa allowlist. Apenas `DATABASE_URL`, `AWS_SES_FROM_EMAIL` e `AWS_SES_FROM_NAME` podem ser carregadas do `.env`. A `DIRECT_URL`, usada pelo Prisma CLI, não é enviada às Lambdas.
 
 O Prisma Client gera engines `native` e `rhel-openssl-3.0.x`. O pacote Lambda executa `scripts/prune-lambda-package.cjs` dentro da pasta temporária de build para excluir Prisma CLI, TypeScript e engines de desenvolvimento, respeitando o limite de tamanho da Lambda sem alterar o `node_modules` local.
 
@@ -96,6 +96,13 @@ aws sts get-caller-identity
 ```
 
 Preencha `.env` com a região, remetente SES e banco. Não commite `.env`, tokens ou credenciais.
+
+Para o Neon, abra **Connect** no painel, selecione Prisma e copie duas URLs do mesmo branch:
+
+- `DATABASE_URL`: conexão pooled, com `-pooler` no hostname, usada pelo app e pelas Lambdas;
+- `DIRECT_URL`: conexão direct, sem `-pooler`, usada somente por migrations, introspection e ferramentas administrativas.
+
+O `docker-compose.yml` continua disponível como fallback local opcional, mas não faz parte do setup padrão.
 
 ## 11. Como verificar e-mail/domínio no SES
 
@@ -117,15 +124,14 @@ npx serverless remove --stage dev --region us-east-1
 
 ## 13. Como rodar migrations do Prisma
 
-Localmente:
+Com as URLs Neon configuradas no `.env`, use `migrate dev` apenas em um branch de desenvolvimento isolado:
 
 ```bash
-docker compose up -d postgres
 npx prisma migrate dev
 npx prisma generate
 ```
 
-Em deploy automatizado, use `npx prisma migrate deploy`. Não execute `migrate dev` contra produção. A migration inicial deste refactor está em `prisma/migrations/`.
+Em deploy automatizado ou no branch de produção, use `npx prisma migrate deploy`. Não execute `migrate dev` contra produção. O Prisma 6 usa `DIRECT_URL` para esses comandos; o runtime continua usando a `DATABASE_URL` pooled. A migration inicial deste refactor está em `prisma/migrations/`.
 
 ## 14. Como criar tenant/provider/API key de dev
 
@@ -219,7 +225,7 @@ Eu parti de uma API de e-mails simples e refatorei para uma arquitetura orientad
 
 ## 22. Trade-offs e melhorias futuras
 
-Postgres mantém relações e auditoria simples, mas muitas Lambdas conectando diretamente podem esgotar conexões. Em produção, considere RDS/Aurora e RDS Proxy.
+Neon PostgreSQL mantém relações e auditoria simples e oferece um endpoint pooled adequado para o tráfego serverless. Ainda é necessário limitar a concorrência das Lambdas, acompanhar conexões e escolher capacidade/plano compatível com a carga.
 
 A persistência do job e a publicação SQS não formam uma transação única. Uma evolução robusta é o transactional outbox. Outros próximos passos:
 
@@ -236,10 +242,10 @@ A persistência do job e a publicação SQS não formam uma transação única. 
 
 ```bash
 npm install
-docker compose up -d postgres
 npx prisma format
 npx prisma validate
 npx prisma migrate dev
+npx prisma migrate deploy
 npx prisma generate
 npx prisma db seed
 npm run start:dev
@@ -258,7 +264,9 @@ npx serverless remove --stage dev --region us-east-1
 
 **SES retorna identidade não verificada:** confirme região, remetente e estado sandbox.
 
-**Muitas conexões no Postgres:** reduza concorrência reservada do worker e planeje RDS Proxy.
+**Muitas conexões no Neon:** confirme que `DATABASE_URL` usa o hostname com `-pooler`, reduza a concorrência reservada das Lambdas e monitore os limites do plano.
+
+**Migration falha no Neon:** confirme que `DIRECT_URL` usa o hostname sem `-pooler` e aponta para o mesmo branch/banco de `DATABASE_URL`.
 
 **Mensagem chegou à DLQ:** consulte logs estruturados pelo `jobId`, corrija provider/dados e faça redrive controlado.
 
