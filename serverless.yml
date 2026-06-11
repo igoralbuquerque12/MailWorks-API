@@ -84,6 +84,7 @@ functions:
     handler: src/lambda/api.handler.handler
     description: MailWorks NestJS HTTP API
     timeout: 30
+    reservedConcurrency: 2
     events:
       - httpApi: '*'
 
