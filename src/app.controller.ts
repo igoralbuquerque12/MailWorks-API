@@ -1,12 +1,14 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
 
-@Controller()
+@Controller('health')
 export class AppController {
-  constructor(private readonly appService: AppService) {}
-
+  /** Returns a lightweight liveness response without external dependencies. */
   @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  healthCheck() {
+    return {
+      status: 'ok',
+      service: 'mailworks-api',
+      timestamp: new Date().toISOString(),
+    };
   }
 }

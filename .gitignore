@@ -2,6 +2,8 @@
 /dist
 /node_modules
 /build
+/.serverless
+/.esbuild
 
 # Logs
 logs
@@ -55,3 +57,5 @@ pids
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 vibe-git/
+
+ai/specs/

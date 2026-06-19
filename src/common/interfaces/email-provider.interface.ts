@@ -4,6 +4,13 @@ export interface EmailPayload {
   content: string;
 }
 
+export interface EmailSendResult {
+  messageId?: string;
+}
+
 export interface IEmailProvider {
-  send(payload: EmailPayload): Promise<void>;
+  /**
+   * Sends an already-rendered email through an external delivery provider.
+   */
+  send(payload: EmailPayload): Promise<EmailSendResult>;
 }

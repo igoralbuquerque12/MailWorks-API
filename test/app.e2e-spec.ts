@@ -1,25 +1,30 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import { Test, TestingModule } from '@nestjs/testing';
+import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { AppController } from './../src/app.controller';
 
 describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      controllers: [AppController],
     }).compile();
-
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('v1');
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  afterEach(async () => app.close());
+
+  it('/v1/health (GET)', async () => {
+    const response = await request(app.getHttpServer() as App).get(
+      '/v1/health',
+    );
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(
+      expect.objectContaining({ status: 'ok', service: 'mailworks-api' }),
+    );
   });
 });

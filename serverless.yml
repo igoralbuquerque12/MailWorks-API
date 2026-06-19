@@ -1,0 +1,154 @@
+service: mailworks-api
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
+  - serverless-offline
+  - serverless-dotenv-plugin
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  architecture: arm64
+  memorySize: 512
+  timeout: 30
+  logRetentionInDays: 14
+  environment:
+    NODE_ENV: ${self:provider.stage}
+    DATABASE_URL: ${env:DATABASE_URL}
+    AWS_SQS_EMAIL_QUEUE_URL:
+      Ref: EmailQueue
+    AWS_SES_FROM_EMAIL: ${env:AWS_SES_FROM_EMAIL}
+    AWS_SES_FROM_NAME: ${env:AWS_SES_FROM_NAME, 'MailWorks'}
+    EMAIL_WORKER_MAX_RECEIVE_COUNT: 5
+    TWO_FACTOR_TTL_SECONDS: 1800
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+            - sqs:GetQueueAttributes
+          Resource:
+            - Fn::GetAtt: [EmailQueue, Arn]
+        - Effect: Allow
+          Action:
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:ChangeMessageVisibility
+            - sqs:GetQueueAttributes
+          Resource:
+            - Fn::GetAtt: [EmailQueue, Arn]
+        - Effect: Allow
+          Action:
+            - ses:SendEmail
+            - ses:SendRawEmail
+          Resource: '*'
+
+package:
+  individually: true
+  patterns:
+    - 'node_modules/.prisma/client/**'
+    - '!node_modules/.prisma/client/query_engine-windows.dll.node'
+
+custom:
+  dotenv:
+    include:
+      - DATABASE_URL
+      - AWS_SES_FROM_EMAIL
+      - AWS_SES_FROM_NAME
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    concurrency: 10
+    external:
+      - '@prisma/client'
+      - '.prisma/client'
+      - '@nestjs/microservices'
+      - '@nestjs/websockets'
+    packagerOptions:
+      ignoreLockfile: true
+      scripts:
+        - node ../../scripts/prune-lambda-package.cjs
+    installExtraArgs:
+      - '--omit=optional'
+      - '--omit=peer'
+
+functions:
+  api:
+    handler: src/lambda/api.handler.handler
+    description: MailWorks NestJS HTTP API
+    timeout: 30
+    reservedConcurrency: 2
+    events:
+      - httpApi: '*'
+
+  emailWorker:
+    handler: src/lambda/email-worker.handler.handler
+    description: Processes MailWorks email jobs from SQS
+    timeout: 60
+    memorySize: 1024
+    reservedConcurrency: 5
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [EmailQueue, Arn]
+          batchSize: 10
+          maximumBatchingWindow: 5
+          functionResponseType: ReportBatchItemFailures
+
+resources:
+  Resources:
+    EmailDeadLetterQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-email-dlq
+        MessageRetentionPeriod: 1209600
+
+    EmailQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-email-queue
+        VisibilityTimeout: 360
+        MessageRetentionPeriod: 345600
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt: [EmailDeadLetterQueue, Arn]
+          maxReceiveCount: 5
+
+    EmailDlqMessagesAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-${self:provider.stage}-dlq-has-messages
+        AlarmDescription: Alarm when MailWorks email DLQ has messages
+        Namespace: AWS/SQS
+        MetricName: ApproximateNumberOfMessagesVisible
+        Dimensions:
+          - Name: QueueName
+            Value:
+              Fn::GetAtt: [EmailDeadLetterQueue, QueueName]
+        Statistic: Sum
+        Period: 60
+        EvaluationPeriods: 1
+        Threshold: 0
+        ComparisonOperator: GreaterThanThreshold
+        TreatMissingData: notBreaching
+
+  Outputs:
+    EmailQueueUrl:
+      Value:
+        Ref: EmailQueue
+    EmailQueueArn:
+      Value:
+        Fn::GetAtt: [EmailQueue, Arn]
+    EmailDeadLetterQueueUrl:
+      Value:
+        Ref: EmailDeadLetterQueue
+    EmailDeadLetterQueueArn:
+      Value:
+        Fn::GetAtt: [EmailDeadLetterQueue, Arn]

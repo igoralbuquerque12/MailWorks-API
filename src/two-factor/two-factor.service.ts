@@ -1,49 +1,89 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as crypto from 'crypto';
-import { CacheService } from 'src/cache/cache.service';
+import { randomInt, timingSafeEqual } from 'crypto';
+import { AuthContext } from 'src/common/auth/auth-context.interface';
+import { hashApiKey } from 'src/common/utils/api-key.util';
 import { EmailService } from 'src/email/email.service';
-import { VerifyTwoFactorDTO, SendTwoFactorDTO } from './dto';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { SendTwoFactorDTO, VerifyTwoFactorDTO } from './dto';
 
 @Injectable()
 export class TwoFactorService {
   private readonly logger = new Logger(TwoFactorService.name);
 
   constructor(
-    private readonly cacheService: CacheService,
+    private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
     private readonly configService: ConfigService,
   ) {}
 
-  async send(twoFactorData: SendTwoFactorDTO): Promise<void> {
-    const { email } = twoFactorData;
-
-    const code = crypto.randomInt(100000, 999999).toString();
-    const cacheKey = `2fa:${email}`;
-
-    await this.cacheService.set(cacheKey, code, 1800);
-
-    const apiKey = this.configService.get<string>('DEFAULT_API_KEY');
-    if (!apiKey) throw new Error('DEFAULT_API_KEY não configurada no .env');
-
-    await this.emailService.send(apiKey, {
-      to: email,
-      subject: 'Seu código de verificação',
-      content: `Seu código é: ${code}`,
+  /** Persists a hashed challenge and queues its email through the standard flow. */
+  async send(auth: AuthContext, dto: SendTwoFactorDTO) {
+    const code = randomInt(100000, 1000000).toString();
+    const ttlSeconds = this.configService.get<number>(
+      'TWO_FACTOR_TTL_SECONDS',
+      1800,
+    );
+    const challenge = await this.prisma.twoFactorChallenge.create({
+      data: {
+        tenantId: auth.tenantId,
+        email: dto.email,
+        codeHash: hashApiKey(code),
+        expiresAt: new Date(Date.now() + ttlSeconds * 1000),
+      },
     });
+    const queued = await this.emailService.send(auth, {
+      to: dto.email,
+      subject: 'Seu codigo de verificacao',
+      content: `<p>Seu codigo e: <strong>${code}</strong></p>`,
+    });
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'two_factor_challenge_created',
+        tenantId: auth.tenantId,
+        challengeId: challenge.id,
+        jobId: queued.jobId,
+      }),
+    );
+
+    return { challengeId: challenge.id, jobId: queued.jobId, queued: true };
   }
 
-  async verify(twoFactorData: VerifyTwoFactorDTO): Promise<boolean> {
-    const { email, code } = twoFactorData;
+  /** Validates a non-expired, single-use challenge for one tenant and email. */
+  async verify(auth: AuthContext, dto: VerifyTwoFactorDTO) {
+    const challenge = await this.prisma.twoFactorChallenge.findFirst({
+      where: {
+        tenantId: auth.tenantId,
+        email: dto.email,
+        consumedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    const cacheKey = `2fa:${email}`;
-    const savedCode = await this.cacheService.get(cacheKey);
-
-    if (savedCode === code) {
-      await this.cacheService.delete(cacheKey);
-      return true;
+    if (!challenge || challenge.expiresAt <= new Date()) {
+      return { valid: false };
     }
 
-    return false;
+    const expected = Buffer.from(challenge.codeHash);
+    const received = Buffer.from(hashApiKey(dto.code));
+    const valid =
+      expected.length === received.length &&
+      timingSafeEqual(expected, received);
+
+    if (!valid) return { valid: false };
+
+    await this.prisma.twoFactorChallenge.update({
+      where: { id: challenge.id },
+      data: { consumedAt: new Date() },
+    });
+    this.logger.log(
+      JSON.stringify({
+        event: 'two_factor_verified',
+        tenantId: auth.tenantId,
+        challengeId: challenge.id,
+      }),
+    );
+    return { valid: true };
   }
 }
